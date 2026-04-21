@@ -1,4 +1,4 @@
-name: Build macOS App
+name: Build Desktop App
 
 on:
   workflow_dispatch:
@@ -17,8 +17,15 @@ jobs:
         include:
           - name: mac-intel
             runner: macos-15-intel
+            artifact: ExcelArchiveSearch-mac-intel.zip
+
           - name: mac-arm64
             runner: macos-latest
+            artifact: ExcelArchiveSearch-mac-arm64.zip
+
+          - name: windows-x64
+            runner: windows-latest
+            artifact: ExcelArchiveSearch-windows-x64.zip
 
     steps:
       - name: Checkout
@@ -36,26 +43,35 @@ jobs:
 
       - name: Build app
         run: |
-          python -m PyInstaller \
-            --noconfirm \
-            --clean \
-            --windowed \
-            --name ExcelArchiveSearch \
-            excel_archive_app.py
+          python -m PyInstaller --noconfirm --clean --windowed --name ExcelArchiveSearch excel_archive_app.py
 
-      - name: Verify architecture
+      - name: Verify macOS app
+        if: runner.os == 'macOS'
         run: |
           file dist/ExcelArchiveSearch.app/Contents/MacOS/ExcelArchiveSearch
           codesign --verify --deep --strict --verbose=2 dist/ExcelArchiveSearch.app
 
-      - name: Zip app
+      - name: Verify Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          ditto -c -k --sequesterRsrc --keepParent \
-            dist/ExcelArchiveSearch.app \
-            ExcelArchiveSearch-${{ matrix.name }}.zip
+          if (!(Test-Path dist/ExcelArchiveSearch/ExcelArchiveSearch.exe)) {
+            throw "ExcelArchiveSearch.exe was not created"
+          }
+
+      - name: Zip macOS app
+        if: runner.os == 'macOS'
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/ExcelArchiveSearch.app ${{ matrix.artifact }}
+
+      - name: Zip Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/ExcelArchiveSearch -DestinationPath ${{ matrix.artifact }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ExcelArchiveSearch-${{ matrix.name }}
-          path: ExcelArchiveSearch-${{ matrix.name }}.zip
+          name: ${{ matrix.name }}
+          path: ${{ matrix.artifact }}
