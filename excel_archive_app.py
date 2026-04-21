@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""macOS app entry point for Excel Archive Search."""
+"""Desktop app entry point for Excel Archive Search."""
 
 from __future__ import annotations
 
@@ -12,9 +12,11 @@ from excel_archive_search import make_config, run_gui
 def default_config_path() -> Path:
     if getattr(sys, "frozen", False):
         executable = Path(sys.executable).resolve()
-        # dist/ExcelArchiveSearch.app/Contents/MacOS/ExcelArchiveSearch
-        app_bundle = executable.parents[2]
-        return app_bundle.parent / "archive_data" / "config.json"
+        if sys.platform == "darwin" and ".app" in executable.as_posix():
+            # dist/ExcelArchiveSearch.app/Contents/MacOS/ExcelArchiveSearch
+            app_bundle = executable.parents[2]
+            return app_bundle.parent / "archive_data" / "config.json"
+        return executable.parent / "archive_data" / "config.json"
     return Path.cwd() / "archive_data" / "config.json"
 
 
