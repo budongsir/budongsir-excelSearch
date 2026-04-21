@@ -1,0 +1,61 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mac-intel
+            runner: macos-15-intel
+          - name: mac-arm64
+            runner: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-build.txt
+
+      - name: Build app
+        run: |
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --windowed \
+            --name ExcelArchiveSearch \
+            excel_archive_app.py
+
+      - name: Verify architecture
+        run: |
+          file dist/ExcelArchiveSearch.app/Contents/MacOS/ExcelArchiveSearch
+          codesign --verify --deep --strict --verbose=2 dist/ExcelArchiveSearch.app
+
+      - name: Zip app
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            dist/ExcelArchiveSearch.app \
+            ExcelArchiveSearch-${{ matrix.name }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExcelArchiveSearch-${{ matrix.name }}
+          path: ExcelArchiveSearch-${{ matrix.name }}.zip
